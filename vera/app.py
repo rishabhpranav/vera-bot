@@ -61,7 +61,7 @@ async def metadata():
                      "per-business pacing; conversation engine with auto-reply detection, yes->action switch, "
                      "hostile/off-topic handling, per-turn Hinglish detection and a polite goodbye; optional "
                      "validated LLM polish."),
-        "contact_email": os.getenv("CONTACT_EMAIL", "rishabhpranav26@gmail.com"),
+        "contact_email": os.getenv("CONTACT_EMAIL", "pranavyadav9004@gmail.com"),
         "version": "1.1.0",
         "submitted_at": os.getenv("SUBMITTED_AT", "2026-09-27T08:00:00Z"),
     }

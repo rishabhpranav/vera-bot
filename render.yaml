@@ -12,6 +12,6 @@ services:
       - key: TEAM_MEMBERS
         value: Pranav Yadav
       - key: CONTACT_EMAIL
-        value: rishabhpranav26@gmail.com
+        value: pranavyadav9004@gmail.com
       - key: ANTHROPIC_API_KEY   # optional — leave unset for the deterministic composer
         sync: false
