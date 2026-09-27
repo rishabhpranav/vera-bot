@@ -1,0 +1,9 @@
+{
+  "name": "vera-bot",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": { "ghcr.io/devcontainers/features/github-cli:1": {} },
+  "postCreateCommand": "pip install -r requirements.txt",
+  "postStartCommand": "bash .devcontainer/start.sh",
+  "forwardPorts": [8080],
+  "portsAttributes": { "8080": { "label": "vera-bot", "onAutoForward": "silent" } }
+}

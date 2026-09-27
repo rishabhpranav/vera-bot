@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: vera-bot
+    runtime: python
+    plan: starter            # free plan sleeps after 15 min idle and loses in-memory state — use starter for the test window
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn vera.app:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /v1/healthz
+    envVars:
+      - key: TEAM_NAME
+        value: Pranav Yadav (DTU)
+      - key: TEAM_MEMBERS
+        value: Pranav Yadav
+      - key: CONTACT_EMAIL
+        value: rishabhpranav26@gmail.com
+      - key: ANTHROPIC_API_KEY   # optional — leave unset for the deterministic composer
+        sync: false

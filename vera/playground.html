@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pranav Yadav DTU Vera Chatbot</title>
+<style>
+:root{--bg:#f4f5f2;--panel:#fff;--ink:#1c1f1a;--muted:#6b7068;--line:#e3e5df;--bot:#fff;--me:#d9f5c9;--accent:#1f7a4d;--accent-ink:#fff;--chip:#eef0eb;--warn:#8a5a00;--warnbg:#fff4dc;--end:#8b2c2c;--endbg:#fbe6e6}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#121411;--panel:#1b1e1a;--ink:#e8ebe4;--muted:#9aa095;--line:#2c302a;--bot:#232722;--me:#1f4a31;--accent:#3fae74;--accent-ink:#0b1a11;--chip:#262a24;--warn:#f0c46b;--warnbg:#3a2f15;--end:#f09a9a;--endbg:#3c1f1f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:16px;display:flex;flex-direction:column;height:100dvh;gap:12px}
+header h1{font-size:18px;margin:0}
+header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.controls{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:end}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+select,input,button{font:inherit;color:inherit}
+select,input[type=text]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+button{padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.chat{flex:1;min-height:300px;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.empty{color:var(--muted);text-align:center;margin:auto;max-width:420px}
+.msg{max-width:82%;padding:9px 12px;border-radius:12px;white-space:pre-wrap;word-wrap:break-word;border:1px solid var(--line)}
+.bot{background:var(--bot);align-self:flex-start;border-top-left-radius:4px}
+.me{background:var(--me);align-self:flex-end;border-top-right-radius:4px;border-color:transparent}
+.meta{font-size:12px;color:var(--muted);margin-top:6px}
+.meta summary{cursor:pointer}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;background:var(--chip);margin-right:4px}
+.sys{align-self:center;font-size:13px;padding:6px 12px;border-radius:99px}
+.sys.wait{background:var(--warnbg);color:var(--warn)}
+.sys.end{background:var(--endbg);color:var(--end)}
+.quick{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.quick button{white-space:nowrap;flex:none;font-size:13px;padding:6px 10px;border-radius:99px;background:var(--chip);border-color:transparent}
+.composer{display:flex;gap:8px}
+.composer input{flex:1}
+footer{text-align:center;font-size:12px;color:var(--muted)}
+@media (max-width:640px){.wrap{height:auto;min-height:100dvh}.controls{grid-template-columns:1fr 1fr}.msg{max-width:92%}header p{font-size:12px}.chat{min-height:55dvh}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Pranav Yadav DTU Vera Chatbot</h1>
+    <p>Pick a merchant and a trigger to see Vera's opening message, then reply as the merchant (or customer) and see what the bot does next. This runs on its own sample data.</p>
+  </header>
+
+  <div class="controls">
+    <div><label for="merchant">Merchant</label><select id="merchant"></select></div>
+    <div><label for="trigger">Trigger</label><select id="trigger"></select></div>
+    <button class="primary" id="start">Start</button>
+    <button id="reset" title="Clear all playground conversations">Reset</button>
+  </div>
+
+  <div class="chat" id="chat"><div class="empty">Choose a merchant and trigger, then press <b>Start</b>.</div></div>
+
+  <div class="quick" id="quick"></div>
+  <form class="composer" id="form">
+    <input type="text" id="input" placeholder="Type a reply as the merchant…" autocomplete="off" disabled>
+    <button class="primary" id="send" disabled>Send</button>
+  </form>
+  <footer>Built by Pranav Yadav · B.Tech Mathematics &amp; Computing, Delhi Technological University</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let catalog = null, conv = null, ended = false;
+const QUICK = ["Yes, let's do it", "What exactly will the message say?", "How much does it cost?",
+  "Thank you for contacting us! Our team will respond shortly.", "Can you help me file my GST?",
+  "Baad mein baat karte hain", "This is useless, stop bothering me", "1"];
+
+async function api(path, body) {
+  const r = await fetch(path, body ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)} : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function esc(s){return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function fillTriggers() {
+  const mid = $("#merchant").value, list = (catalog.triggers[mid] || []);
+  $("#trigger").innerHTML = list.map(t =>
+    `<option value="${esc(t.id)}">${esc(t.kind.replace(/_/g," "))}${t.customer ? " → " + esc(t.customer) : ""} (urgency ${t.urgency})</option>`).join("")
+    + `<option value="">Free chat (you write first)</option>`;
+}
+function addBot(body, extra) {
+  const d = document.createElement("div"); d.className = "msg bot";
+  d.innerHTML = esc(body) + (extra ? `<div class="meta">${extra}</div>` : "");
+  $("#chat").appendChild(d); d.scrollIntoView({behavior: "smooth", block: "end"});
+}
+function addMe(text) {
+  const d = document.createElement("div"); d.className = "msg me"; d.textContent = text;
+  $("#chat").appendChild(d); d.scrollIntoView({behavior: "smooth", block: "end"});
+}
+function addSys(text, cls) {
+  const d = document.createElement("div"); d.className = "sys " + cls; d.textContent = text;
+  $("#chat").appendChild(d); d.scrollIntoView({behavior: "smooth", block: "end"});
+}
+function why(r, tags) {
+  return (tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join("")
+    + (r ? `<details><summary>Why</summary>${esc(r)}</details>` : "");
+}
+function setComposer(on, role) {
+  $("#input").disabled = !on; $("#send").disabled = !on;
+  $("#input").placeholder = on ? `Type a reply as the ${role || "merchant"}…` : "Conversation ended — press Start for a new one";
+  $("#quick").innerHTML = on ? QUICK.map(q => `<button type="button">${esc(q)}</button>`).join("") : "";
+}
+
+async function start() {
+  $("#chat").innerHTML = ""; ended = false;
+  try {
+    const r = await api("/playground/api/start", {merchant_id: $("#merchant").value, trigger_id: $("#trigger").value});
+    conv = r.conversation_id;
+    if (r.opening) {
+      if (r.skipped_reason) addSys("In the real test Vera would not send this: " + r.skipped_reason, "wait");
+      addBot(r.opening.body, why(r.opening.rationale, [r.opening.send_as === "vera" ? "Vera → merchant" : "sent as merchant → customer", "CTA: " + r.opening.cta]));
+    } else addSys("Free chat — write the first message as the merchant.", "wait");
+    setComposer(true, r.reply_role); $("#input").focus();
+  } catch (e) { addSys("Error: " + e.message, "end"); }
+}
+
+async function send(text) {
+  if (!conv || ended || !text.trim()) return;
+  addMe(text); $("#input").value = "";
+  try {
+    const r = await api("/playground/api/reply", {conversation_id: conv, message: text});
+    if (r.action === "send") {
+      addBot(r.body, why(r.rationale, ["CTA: " + r.cta]));
+      if (r.conversation_closed) { addSys("Conversation closed — press Start for a new one", "end"); ended = true; setComposer(false); }
+    }
+    else if (r.action === "wait") addSys(`Bot waits ${Math.round(r.wait_seconds / 3600 * 10) / 10}h — ${r.rationale}`, "wait");
+    else { addSys("Bot ended the conversation — " + r.rationale, "end"); ended = true; setComposer(false); }
+  } catch (e) { addSys("Error: " + e.message, "end"); }
+}
+
+$("#merchant").addEventListener("change", fillTriggers);
+$("#start").addEventListener("click", start);
+$("#reset").addEventListener("click", async () => { await api("/playground/api/reset", {}); conv = null; $("#chat").innerHTML = '<div class="empty">Reset. Press <b>Start</b>.</div>'; setComposer(false); });
+$("#form").addEventListener("submit", e => { e.preventDefault(); send($("#input").value); });
+$("#quick").addEventListener("click", e => { if (e.target.tagName === "BUTTON") send(e.target.textContent); });
+
+(async () => {
+  catalog = await api("/playground/api/catalog");
+  $("#merchant").innerHTML = catalog.merchants.map(m =>
+    `<option value="${esc(m.id)}">${esc(m.name)} — ${esc(m.category)}, ${esc(m.city)}</option>`).join("");
+  fillTriggers();
+  setComposer(false);
+  $("#input").placeholder = "Press Start first";
+})();
+</script>
+</body>
+</html>
